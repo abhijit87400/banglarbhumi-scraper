@@ -6,48 +6,41 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-let page; // Puppeteer Page globally রাখা হয়েছে
+let page; // Puppeteer Page globally
 
-// ✅ Home Route
 app.get('/', (req, res) => {
-  res.send('✅ Banglarbhumi Automation Server Running!');
+  res.send('✅ Banglarbhumi Automation Server is Running!');
 });
 
-// ✅ Get Captcha API
+// Captcha Route
 app.get('/getCaptcha', async (req, res) => {
-  try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    page = await browser.newPage();
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
+  });
 
-    await page.goto('https://banglarbhumi.gov.in/BanglarBhumi/Home.action', { waitUntil: 'networkidle2' });
+  page = await browser.newPage();
 
-    // Popup Auto Close
-    await page.evaluate(() => {
-      const popup = document.getElementById('close-popup');
-      if (popup) popup.click();
-    });
+  await page.goto('https://banglarbhumi.gov.in/BanglarBhumi/Home.action', { waitUntil: 'domcontentloaded' });
 
-    await page.waitForSelector('#knowYourProperty', { timeout: 10000 });
-    await page.click('#knowYourProperty');
+  // Close popup if found
+  await page.evaluate(() => {
+    const closeBtn = document.getElementById('close-popup');
+    if (closeBtn) closeBtn.click();
+  });
 
-    await page.waitForSelector('#captchaImage', { timeout: 10000 });
+  // Wait and click Know Your Property
+  await page.waitForSelector('#knowYourProperty');
+  await page.click('#knowYourProperty');
 
-    // Capture Captcha
-    const captchaImage = await page.$('#captchaImage');
-    const captchaBase64 = await captchaImage.screenshot({ encoding: 'base64' });
+  await page.waitForSelector('#captchaImage');
+  const captchaImage = await page.$('#captchaImage');
+  const captchaBase64 = await captchaImage.screenshot({ encoding: 'base64' });
 
-    res.json({ success: true, captcha: captchaBase64 });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Failed to get captcha" });
-  }
+  res.json({ success: true, captcha: captchaBase64 });
 });
 
-// ✅ Login API (loginAndSearchPlot)
+// Login Route
 app.post('/loginAndSearchPlot', async (req, res) => {
   const { username, password, captchaInput } = req.body;
 
@@ -55,27 +48,20 @@ app.post('/loginAndSearchPlot', async (req, res) => {
     return res.status(400).json({ success: false, message: "username, password, captchaInput required" });
   }
 
-  try {
-    await page.type('#username', username);
-    await page.type('#password', password);
-    await page.type('#txtInput', captchaInput);
+  await page.type('#username', username);
+  await page.type('#password', password);
+  await page.type('#txtInput', captchaInput);
 
-    await Promise.all([
-      page.click('#loginsubmit'),
-      page.waitForNavigation({ waitUntil: 'networkidle2' })
-    ]);
+  await Promise.all([
+    page.click('#loginsubmit'),
+    page.waitForNavigation({ waitUntil: 'networkidle2' })
+  ]);
 
-    // After login, you can continue plotting search or profile fetch
-    res.json({ success: true, message: "✅ Login successful!" });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: "Login failed" });
-  }
+  res.json({ success: true, message: "✅ Login Successful" });
 });
 
-// ✅ Server Listen
+// Server listen properly (VERY IMPORTANT)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`✅ Server is running at http://localhost:${PORT}`);
 });
